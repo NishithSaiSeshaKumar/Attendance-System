@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}System Settings{% endblock %}
+{% block header %}Admin Settings{% endblock %}
+
+{% block content %}
+<div class="settings-container">
+    <!-- Password Change Section -->
+    <div class="settings-card">
+        <h3>Change Password</h3>
+        <form id="passwordForm">
+            <div class="form-group">
+                <label>Current Password</label>
+                <input type="password" name="currentPassword" required>
+            </div>
+            <div class="form-group">
+                <label>New Password</label>
+                <input type="password" name="newPassword" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Update Password</button>
+        </form>
+    </div>
+
+    <!-- Audit Logs Section -->
+    <div class="settings-card">
+        <h3>Recent Admin Actions</h3>
+        <table class="logs-table">
+            <thead>
+                <tr>
+                    <th>Action</th>
+                    <th>User ID</th>
+                    <th>Timestamp</th>
+                    <th>Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td>{{ log.action }}</td>
+                    <td>{{ log.user_id }}</td>
+                    <td>{{ log.timestamp }}</td>
+                    <td>{{ log.details }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="4">No logs available</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="settings-card">
+        <h3>Admin Management</h3>
+        <button class="btn btn-secondary" onclick="showAdminModal()">
+            <i class="fas fa-user-plus"></i> Add New Admin
+        </button>
+        
+        <div class="admin-list">
+            {% for admin_id, admin in admins.items() %}
+            <div class="admin-card">
+                <div class="admin-info">
+                    <strong>{{ admin_id }}</strong>
+                    <span>{{ admin.email }}</span>
+                    <small>Created: {{ admin.created_at|datetimeformat }}</small>
+                </div>
+                <div class="admin-actions">
+                    <button class="btn btn-danger" 
+                            onclick="deleteAdmin('{{ admin_id }}')"
+                            {% if admin_id == session.user_id %}disabled{% endif %}>
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Add Admin Modal -->
+    <div id="adminModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="hideAdminModal()">&times;</span>
+            <h3>Create New Admin</h3>
+            <form id="adminForm">
+                <div class="form-group">
+                    <label>Admin ID</label>
+                    <input type="text" name="admin_id" required>
+                </div>
+                <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label>Password</label>
+                    <input type="password" name="password" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Create Admin</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('passwordForm').onsubmit = async function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        
+        const response = await fetch('/api/change-password', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(Object.fromEntries(formData))
+        });
+        
+        const result = await response.json();
+        if(result.success) {
+            alert('Password updated successfully');
+            this.reset();
+        } else {
+            alert(result.message || 'Password change failed');
+        }
+    };
+    function showAdminModal() {
+    document.getElementById('adminModal').style.display = 'block';
+    }
+
+    function hideAdminModal() {
+    document.getElementById('adminModal').style.display = 'none';
+    }
+
+    document.getElementById('adminForm').onsubmit = async function(e) {
+    e.preventDefault();
+    const formData = new FormData(this);
+
+    const response = await fetch('/api/admins', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.fromEntries(formData))
+    });
+
+    const result = await response.json();
+    if(result.success) {
+        alert('Admin created successfully');
+        hideAdminModal();
+        location.reload();
+    } else {
+        alert(result.message || 'Failed to create admin');
+    }
+    };
+
+    async function deleteAdmin(adminId) {
+    if(confirm(`Permanently delete admin ${adminId}?`)) {
+        const response = await fetch(`/api/admins/${adminId}`, {
+            method: 'DELETE'
+        });
+        // Handle response
+    }
+    }
+
+
+</script>
+{% endblock %}

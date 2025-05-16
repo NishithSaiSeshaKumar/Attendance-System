@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+
+{% block title %}Analytics Dashboard{% endblock %}
+{% block header %}System Analytics{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+
+{% endblock %}
+
+{% block content %}
+<div class="analytics-header">
+    <h2>System Analytics Overview</h2>
+    <div class="date-range-picker">
+        <input type="text" class="date-input" id="startDate" placeholder="Start Date">
+        <span>–</span>
+        <input type="text" class="date-input" id="endDate" placeholder="End Date">
+        <button class="btn btn-primary" onclick="applyDateFilter()">Apply</button>
+    </div>
+</div>
+
+<div class="stats-summary" id="statsSummary">
+    <!-- Dynamically populated by JS -->
+</div>
+
+<div class="analytics-grid">
+    <div class="analytics-card">
+        <h3>Daily Check-in Trends</h3>
+        <div class="chart-container" id="dailyCheckinsChart"></div>
+    </div>
+    
+    <div class="analytics-card">
+        <h3>Geofence Compliance</h3>
+        <div class="chart-container" id="geofenceComplianceChart"></div>
+    </div>
+    
+    <div class="analytics-card">
+        <h3>Check-in Time Distribution</h3>
+        <div class="chart-container" id="timeDistributionChart"></div>
+    </div>
+    
+</div>
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.4.2/dist/echarts.min.js"></script>
+
+<script>
+    // Initialize ECharts instances
+    const charts = {
+        daily: echarts.init(document.getElementById('dailyCheckinsChart')),
+        compliance: echarts.init(document.getElementById('geofenceComplianceChart')),
+        time: echarts.init(document.getElementById('timeDistributionChart'))
+    };
+
+    // Initialize date pickers
+    flatpickr("#startDate", { 
+        dateFormat: "Y-m-d",
+        defaultDate: new Date(Date.now() - 30 * 86400000)
+    });
+    
+    flatpickr("#endDate", {
+        dateFormat: "Y-m-d",
+        defaultDate: new Date()
+    });
+
+
+
+    // Load all data
+    function loadAnalytics() {
+        loadSummaryStats();
+        loadDailyCheckins();
+        loadCompliance();
+        loadTimeDistribution();
+        loadHeatmap();
+    }
+
+    // Load summary stats
+    async function loadSummaryStats() {
+        const [daily, compliance] = await Promise.all([
+            fetch('/api/analytics/daily-checkins').then(r => r.json()),
+            fetch('/api/analytics/geofence-compliance').then(r => r.json())
+        ]);
+        
+        const statsHTML = `
+            <div class="stat-box">
+                <div class="stat-value">${daily.length}</div>
+                <div class="stat-label">Days Tracked</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">${daily.reduce((a, b) => a + b.total, 0)}</div>
+                <div class="stat-label">Total Check-ins</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-value">${compliance.compliance_rate}%</div>
+                <div class="stat-label">Compliance Rate</div>
+            </div>
+        `;
+        
+        document.getElementById('statsSummary').innerHTML = statsHTML;
+    }
+
+    // Load daily check-ins chart
+    async function loadDailyCheckins() {
+        const data = await fetch('/api/analytics/daily-checkins').then(r => r.json());
+        
+        charts.daily.setOption({
+            tooltip: { trigger: 'axis' },
+            legend: { data: ['Total Check-ins', 'Unique Users'] },
+            xAxis: { type: 'category', data: data.map(d => d.date) },
+            yAxis: { type: 'value' },
+            series: [
+                { name: 'Total Check-ins', type: 'line', smooth: true, data: data.map(d => d.total) },
+                { name: 'Unique Users', type: 'line', smooth: true, data: data.map(d => d.unique) }
+            ]
+        });
+    }
+
+    // Load compliance chart
+    async function loadCompliance() {
+        const data = await fetch('/api/analytics/geofence-compliance').then(r => r.json());
+        
+        charts.compliance.setOption({
+            tooltip: { trigger: 'item' },
+            series: [{
+                type: 'pie',
+                radius: ['40%', '70%'],
+                data: [
+                    { value: data.inside, name: 'Inside Geofence' },
+                    { value: data.outside, name: 'Outside Geofence' }
+                ],
+                emphasis: { itemStyle: { shadowBlur: 10 } }
+            }]
+        });
+    }
+
+    // Load time distribution chart
+    async function loadTimeDistribution() {
+        const data = await fetch('/api/analytics/checkin-times').then(r => r.json());
+        const hours = Object.keys(data).sort();
+        
+        charts.time.setOption({
+            xAxis: { type: 'category', data: hours },
+            yAxis: { type: 'value' },
+            series: [{
+                type: 'bar',
+                data: hours.map(h => data[h]),
+                itemStyle: { color: '#3a7bd5' }
+            }]
+        });
+    }
+
+    // Load heatmap
+    async function loadHeatmap() {
+        const data = await fetch('/api/analytics/checkin-times').then(r => r.json());
+        
+        map.on('load', () => {
+            map.addSource('checkins', {
+                type: 'geojson',
+                data: {
+                    type: 'FeatureCollection',
+                    features: Object.entries(data).map(([time, count]) => ({
+                        type: 'Feature',
+                        geometry: { type: 'Point', coordinates: [78.4845, 17.3860] }, // Actual coordinates needed
+                        properties: { count }
+                    }))
+                }
+            });
+            
+            map.addLayer({
+                id: 'checkins-heat',
+                type: 'heatmap',
+                source: 'checkins',
+                paint: {
+                    'heatmap-weight': ['interpolate', ['linear'], ['get', 'count'], 0, 0, 10, 1],
+                    'heatmap-intensity': ['interpolate', ['linear'], ['zoom'], 0, 1, 9, 3],
+                    'heatmap-color': [
+                        'interpolate', ['linear'], ['heatmap-density'],
+                        0, 'rgba(33,102,172,0)',
+                        0.2, 'rgb(103,169,207)',
+                        0.4, 'rgb(209,229,240)',
+                        0.6, 'rgb(253,219,199)',
+                        0.8, 'rgb(239,138,98)',
+                        1, 'rgb(178,24,43)'
+                    ]
+                }
+            });
+        });
+    }
+
+    // Initial load
+    document.addEventListener('DOMContentLoaded', loadAnalytics);
+    
+    // Handle window resize
+    window.addEventListener('resize', () => {
+        Object.values(charts).forEach(chart => chart.resize());
+        map.resize();
+    });
+</script>
+{% endblock %}
+{% endblock %}

@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+
+{% block title %}User Management{% endblock %}
+{% block header %}User Management{% endblock %}
+
+{% block content %}
+<div class="users-container">
+    <div class="users-header">
+        <h2>All Users ({{ users|length }})</h2>
+        <button class="btn-add-user" onclick="showAddModal()">
+            <i class="fas fa-plus"></i> Add User
+        </button>
+    </div>
+
+    <div class="users-table-container">
+        <table class="users-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Email</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for user_id, user in users.items() %}
+                <tr>
+                    <td>{{ user_id }}</td>
+                    <td>{{ user.get('email', 'N/A') }}</td>
+                    <td>
+                        <span class="status-badge {{ 'active' if user.get('hasregistered', False) else 'inactive' }}">
+                            {{ 'Active' if user.get('hasregistered', False) else 'Inactive' }}
+                        </span>
+                    </td>
+                    <td class="actions">
+                        <button class="btn-edit" onclick="showEditModal('{{ user_id }}')">
+                            <i class="fas fa-edit"></i>
+                        </button>
+                        <button class="btn-delete" onclick="deleteUser('{{ user_id }}')">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" class="no-users">No users found</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Add User Modal -->
+<div id="addModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="hideAddModal()">&times;</span>
+        <h3>Add New User</h3>
+        <form id="addForm">
+            <div class="form-group">
+                <label>User ID *</label>
+                <input type="text" name="user_id" required>
+            </div>
+            <div class="form-group">
+                <label>Email *</label>
+                <input type="email" name="email" required>
+            </div>
+            <div class="form-actions">
+                <button type="button" class="btn-cancel" onclick="hideAddModal()">Cancel</button>
+                <button type="submit" class="btn-submit">Create User</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div id="editModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="hideEditModal()">&times;</span>
+        <h3>Edit User</h3>
+        <form id="editForm">
+            <input type="hidden" id="edit_user_id" name="user_id">
+            
+            <div class="form-group">
+                <label>Email *</label>
+                <input type="email" id="edit_email" name="email" required>
+            </div>
+            
+            <div class="form-group">
+                <label class="checkbox-container">
+                    <input type="checkbox" id="edit_hasregistered" name="active">
+                    <span class="checkmark"></span>
+                    Active Account
+                </label>
+            </div>
+            
+            <div class="form-actions">
+                <button type="button" class="btn-cancel" onclick="hideEditModal()">Cancel</button>
+                <button type="submit" class="btn-submit">Save Changes</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // Add User Modal Functions
+    function showAddModal() {
+        document.getElementById('addModal').style.display = 'block';
+    }
+    
+    function hideAddModal() {
+        document.getElementById('addModal').style.display = 'none';
+    }
+
+    // Edit User Modal Functions
+    function showEditModal(userId) {
+        // Fetch user data
+        console.log(`Fetching user data for ID: ${userId}`); // Debugging log
+        fetch(`/api/users/${userId}`)
+            .then(response => {if (!response.ok) { throw new Error('Failed to fetch user data');
+
+            } 
+            return response.json();
+    })
+            .then(user => {
+                document.getElementById('edit_user_id').value = userId;
+                document.getElementById('edit_email').value = user.email || '';
+                document.getElementById('edit_hasregistered').checked = user.hasregistered !== false;
+                
+                document.getElementById('editModal').style.display = 'block';
+            })        
+            .catch(error => {
+            console.error('Error fetching user data:', error);
+            alert('Failed to load user data. Please try again.');
+        });
+    }
+    
+    function hideEditModal() {
+        document.getElementById('editModal').style.display = 'none';
+    }
+
+    // Form Submissions
+    document.getElementById('addForm').onsubmit = async function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        
+        try {
+            const response = await fetch('/api/users', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(Object.fromEntries(formData.entries()))
+            });
+            
+            if (response.ok) {
+                location.reload();
+            } else {
+                alert('Error creating user');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    };
+
+    document.getElementById('editForm').onsubmit = async function(e) {
+        e.preventDefault();
+        const userId = document.getElementById('edit_user_id').value;
+        const formData = new FormData(this);
+        const data = Object.fromEntries(formData.entries());
+        data.hasregistered = document.getElementById('edit_hasregistered').checked;
+
+        
+        try {
+            const response = await fetch(`/api/users/${userId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(data)
+            });
+            
+            if (response.ok) {
+                location.reload();
+            } else {
+                alert('Error updating user');
+            }
+        } catch (error) {
+            console.error('Error:', error);
+        }
+    };
+
+    // Delete User Function
+    function deleteUser(userId) {
+        if (confirm('Are you sure you want to permanently delete this user?')) {
+            fetch(`/api/users/${userId}`, {
+                method: 'DELETE'
+            })
+            .then(response => {
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    alert('Error deleting user');
+                }
+            });
+        }
+    }
+
+    // Close modals when clicking outside
+    window.onclick = function(event) {
+        if (event.target.classList.contains('modal')) {
+            hideAddModal();
+            hideEditModal();
+        }
+    };
+</script>
+{% endblock %}

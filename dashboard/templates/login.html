@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard Login</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+   <!-- add style from static/style.css -->
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<div class="login-container">
+    <h2>Admin Dashboard</h2>
+    <form id="loginForm">
+        <div class="form-field">
+            <label for="ID">ID Address</label>
+            <input type="text" id="ID" name="ID" required>
+        </div>
+        <div class="form-field">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" required>
+        </div>
+        <div class="form-field">
+            <label>
+                <input type="checkbox" name="remember"> Remember me
+            </label>
+        </div>
+        <!-- <div class="forgot-password">
+            <a href="#">Forgot your password?</a>
+        </div> -->
+        <button type="submit" class="button">Sign in</button>
+    </form>
+    <div>
+        <p>Demo credentials:</p>
+        <p>ID: admin@example.com<br>Password: password</p>
+    </div>
+</div>
+
+<script>
+    document.getElementById('loginForm').onsubmit = async function(event) {
+        event.preventDefault();
+        const ID = document.getElementById('ID').value;
+        const password = document.getElementById('password').value;
+        const remember = document.querySelector('input[name="remember"]').checked; // Get the "Remember Me" value
+
+        const response = await fetch('/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ ID, password })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+            // Redirect to dashboard or handle successful login
+            window.location.href = '/dashboard';
+        } else {
+            // Handle login failure (show error message)
+            alert(result.message || "Invalid credentials. Please try again.");
+        }
+    }
+</script>
+
+</body>
+</html>

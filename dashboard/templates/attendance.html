@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}Attendance Monitoring{% endblock %}
+{% block header %}Attendance Monitoring{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+{% endblock %}
+
+{% block content %}
+<div class="attendance-container">
+    <div class="attendance-header">
+        <h2>Attendance Records</h2>
+        <div class="attendance-controls">
+            <input type="text" class="date-picker" id="datePicker" placeholder="Select date">
+            <select id="userFilter" class="user-filter">
+                <option value="">All Users</option>
+                {% for user_id, user in users.items() %}
+                <option value="{{ user_id }}">{{ user.name }}</option>
+                {% endfor %}
+            </select>
+            
+            <button class="btn btn-apply-filters" onclick="applyFilters()">Apply Filters</button>
+            <button class="btn btn-reset-filters" onclick="resetDateFilter()">Reset Date Filter</button>
+            <button class="btn btn-export" onclick="exportAttendance()">
+                <i class="fas fa-file-export"></i> Export CSV
+            </button>        
+        </div>
+    </div>
+    <div class="attendance-table-container">
+        <table class="attendance-table">
+            <thead>
+                <tr>
+                    <th>User ID</th>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Latitude</th>
+                    <th>Longitude</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in attendance %}
+                <tr>
+                    <td>{{ record.userId }}</td>
+                    <td>{{ record.date }}</td>
+                    <td>{{ record.time }}</td>
+                    <td>{{ record.latitude }}</td>
+                    <td>{{ record.longitude }}</td>
+                    <td>
+                        <button class="btn-map" onclick="showMap({{ record.latitude }}, {{ record.longitude }})">
+                            <i class="fas fa-map-marker-alt"></i> View on Map
+                        </button>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6">No attendance records found</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</div>
+
+<!-- Map Modal -->
+<div id="mapModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="hideMap()">&times;</span>
+        <div id="attendanceMap" style="height: 400px;"></div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+<script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+<script>
+    // Date picker initialization
+    flatpickr("#datePicker", {
+        dateFormat: "Y-m-d",
+        defaultDate: "{{ default_date }}",
+        onChange: function(selectedDates, dateStr) {
+            window.location.href = `/attendance?date=${dateStr}`;
+        }
+    });
+    function applyFilters() {
+    const date = document.getElementById('datePicker').value;
+    const user = document.getElementById('userFilter').value;
+    let url = `/attendance?date=${date}`;
+    if (user) {
+        url += `&user=${user}`;
+    }
+    window.location.href = url;
+    }
+
+    // Reset Date Filter
+    function resetDateFilter() {
+        const user = document.getElementById('userFilter').value;
+        let url = '/attendance';
+        if (user) {
+            url += `?user=${user}`;
+        }
+        window.location.href = url;
+    }
+    // Map functions
+    let map;
+    let marker;
+
+    function showMap(lat, lng) {
+    // Generate the Google Maps URL
+    const googleMapsUrl = `https://www.google.com/maps/?q=${lat},${lng}`;
+    
+    // Open the URL in a new tab
+    window.open(googleMapsUrl, '_blank');
+
+    }
+
+    function hideMap() {
+        document.getElementById('mapModal').style.display = 'none';
+    }
+
+    // Export function
+    function exportAttendance() {
+        const date = document.getElementById('datePicker').value;
+        window.location.href = `/api/attendance/export?date=${date}`;
+    }
+</script>
+{% endblock %}
+{% endblock %}

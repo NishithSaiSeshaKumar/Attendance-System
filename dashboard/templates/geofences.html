@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+
+{% block title %}Geofence Management{% endblock %}
+{% block header %}Geofence Management{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link rel="stylesheet" href="/static/style.css">
+{% endblock %}
+
+{% block content %}
+<div class="geofence-container">
+    <div>
+        <div id="map"></div>
+    </div>
+    
+    <div class="geofence-list">
+        <h3>Geofences ({{ geofences|length }})</h3>
+        {% for id, geofence in geofences.items() %}
+        <div class="geofence-card {% if id == active_geofence %}active{% endif %}" id="geofence-{{ id }}">
+            <div>
+                <strong>{{ geofence.locality }}</strong>
+                <div style="font-size: 0.8rem; color: #666;">
+                    {{ geofence.latitudes|length }} points
+                </div>
+            </div>
+            <div class="geofence-actions">
+                <button class="button-8" style="color: blue;" onclick="viewGeofence('{{ id }}')">
+                    <i class="fas fa-eye"></i> View
+                    {% if id != active_geofence %}
+                <button class="button-8" style="color: green;" onclick="setActiveGeofence('{{ id }}')">
+                    <i class="fas fa-check-circle"></i> Set Active
+                </button>
+                {% endif %}
+                <button class="button-8" style="color: red;"onclick="deleteGeofence('{{ id }}')">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+        </div>
+        {% else %}
+        <p>No geofences created yet</p>
+        {% endfor %}
+    </div>
+</div>
+
+<div class="add-geofence-form">
+    <h3>Add New Geofence</h3>
+    <form id="addGeofenceForm">
+        <div class="form-group">
+            <label>Locality Name</label>
+            <input type="text" name="locality" required>
+        </div>
+        
+        <div class="form-group">
+            <label>Coordinates (Format: "latitude1 longitude1,latitude2 longitude2,...")</label>
+            <textarea id="coordinatesInput" name="coordinates" rows="4" placeholder="Enter coordinates in the format: latitude1 longitude1,latitude2 longitude2,..."></textarea>
+        </div>
+        
+        <button type="submit" class="btn-submit">Create Geofence</button>
+    </form>
+</div>
+
+{% block extra_js %}
+<script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+<script>
+    // Map and polygon variables
+    let map;
+    let polygon = null;
+    let points = [];
+    
+    // Initialize map
+    function initMap() {
+        map = L.map('map').setView([17.3860, 78.4845], 18);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        
+        // Load active geofence if exists
+        {% if active_geofence and active_geofence in geofences %}
+            const active = {{ geofences[active_geofence]|tojson }};
+            drawGeofence(active);
+        {% endif %}
+    }
+    
+    // Draw geofence on map
+    function drawGeofence(geofence) {
+        // Clear existing polygon
+        if (polygon) {
+            map.removeLayer(polygon);
+        }
+        
+        // Create array of latlng points
+        const latlngs = [];
+        for (let i = 0; i < geofence.latitudes.length; i++) {
+            latlngs.push([geofence.latitudes[i], geofence.longitudes[i]]);
+        }
+        
+        // Draw new polygon
+        polygon = L.polygon(latlngs, {color: '#3a7bd5'}).addTo(map);
+        map.fitBounds(polygon.getBounds());
+        
+        // Add popup with locality name
+        polygon.bindPopup(`<b>${geofence.locality}</b>`).openPopup();
+    }
+    
+// View geofence boundaries
+    function viewGeofence(geofenceId) {
+        fetch(`/api/geofences/${geofenceId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    drawGeofence(data.geofence);
+                } else {
+                    alert('Error fetching geofence: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while fetching the geofence.');
+            });
+    }
+
+
+    // Set active geofence
+    function setActiveGeofence(geofenceId) {
+        fetch('/api/active_geofence', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({geofence_id: geofenceId})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            }
+        });
+    }
+    
+    // Delete geofence
+    function deleteGeofence(geofenceId) {
+        if (confirm('Are you sure you want to delete this geofence?')) {
+            fetch(`/api/geofences/${geofenceId}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                }
+            });
+        }
+    }
+    
+    // Add point to new geofence form
+    function addPoint() {
+        const lat = parseFloat(document.querySelector('.lat-input').value);
+        const lng = parseFloat(document.querySelector('.lng-input').value);
+        
+        if (isNaN(lat) || isNaN(lng)) {
+            alert('Please enter valid coordinates');
+            return;
+        }
+        
+        points.push({lat, lng});
+        updatePointsList();
+    }
+    
+    // Update the points list display
+    function updatePointsList() {
+        const listDiv = document.getElementById('pointsList');
+        
+        if (points.length === 0) {
+            listDiv.innerHTML = 'No points added yet';
+            return;
+        }
+        
+        let html = '<ol>';
+        points.forEach(point => {
+            html += `<li>${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}</li>`;
+        });
+        html += '</ol>';
+        listDiv.innerHTML = html;
+        
+        // Update hidden inputs
+        document.getElementById('latitudes').value = JSON.stringify(points.map(p => p.lat));
+        document.getElementById('longitudes').value = JSON.stringify(points.map(p => p.lng));
+    }
+    
+    // Handle form submission
+    document.getElementById('addGeofenceForm').onsubmit = function (e) {
+        e.preventDefault();
+
+        // Get the form data
+        const formData = new FormData(this);
+        const data = Object.fromEntries(formData.entries());
+
+        // Submit the data to the backend
+        fetch('/api/geofences', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data),
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error creating geofence: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while creating the geofence.');
+            });
+    };    
+    // Initialize on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        initMap();
+    });
+</script>
+{% endblock %}
+{% endblock %}

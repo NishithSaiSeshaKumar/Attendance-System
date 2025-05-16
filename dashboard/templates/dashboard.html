@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block header %}Dashboard Overview{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <!-- Stats Cards -->
+    <div class="stats-cards">
+        <div class="card">
+            <div class="card-icon bg-blue">
+                <i class="fas fa-users"></i>
+            </div>
+            <div class="card-info">
+                <h3>Total Users</h3>
+                <p>{{ stats.users_count }}</p>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-icon bg-green">
+                <i class="fas fa-calendar-check"></i>
+            </div>
+            <div class="card-info">
+                <h3>Present Today</h3>
+                <p>{{ stats.present_today }}</p>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-icon bg-red">
+                <i class="fas fa-user-times"></i>
+            </div>
+            <div class="card-info">
+                <h3>Absentees</h3>
+                <p>{{ stats.absentees }}</p>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-icon bg-purple">
+                <i class="fas fa-map-marker-alt"></i>
+            </div>
+            <div class="card-info">
+                <h3>Total Geofences</h3>
+                <p>{{ stats.geofences_count }}</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="charts-container">
+        <div class="chart-card">
+            <h3>Weekly Attendance</h3>
+            <canvas id="attendanceChart"></canvas>
+        </div>
+        <div class="chart-card">
+            <h3>Geofence Compliance</h3>
+            <canvas id="geofenceChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Recent Attendance Table -->
+    <div class="recent-attendance">
+        <h3>Recent Attendance</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>User</th>
+                    <th>Check-in Time</th>
+                    <th>Status</th>
+                    <th>Geofence</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for record in recent_attendance %}
+                <tr>
+                    <td>{{ record.user }}</td>
+                    <td>{{ record.check_in_time }}</td>
+                    <td>
+                        <span class="status {{ record.status|lower }}">{{ record.status }}</span>
+                    </td>
+                    <td>
+                        <span class="geofence {{ record.geofence|lower }}">{{ record.geofence }}</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+    // Attendance Chart
+    const attendanceCtx = document.getElementById('attendanceChart');
+    new Chart(attendanceCtx, {
+        type: 'line',
+        data: {
+            labels: {{ attendance_data|map(attribute='date')|list|tojson }},
+            datasets: [{
+                label: 'Attendance Count',
+                data: {{ attendance_data|map(attribute='count')|list|tojson }},
+                borderColor: 'rgb(75, 192, 192)',
+                tension: 0.1,
+                fill: true,
+                backgroundColor: 'rgba(75, 192, 192, 0.1)'
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
+    });
+
+    // Geofence Compliance Chart
+    const geofenceCtx = document.getElementById('geofenceChart');
+    new Chart(geofenceCtx, {
+        type: 'pie',
+        data: {
+            labels: ['Inside Geofence', 'Outside Geofence'],
+            datasets: [{
+                data: [85, 15], // Example data
+                backgroundColor: ['#4CAF50', '#F44336']
+            }]
+        }
+    });
+</script>
+{% endblock %}
+{% endblock %}

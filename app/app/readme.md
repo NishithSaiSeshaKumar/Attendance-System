@@ -1,0 +1,10 @@
+Main Activity:- Interface : Show A text view whether Registered or Not upon checking the any saved embedings or registered faces. Show a text view of verified Count as of current date . A button to Navigate to RegistrationActivity and do registration process. A button to Verification process Functionality: The Registration is already done or not can be obtained from the registeredfaces are there or not update it to respective text view The verification count has to be made everytime the verification process is successfully completed then the count is displayed in respective text view.
+
+FaceRegistration:--[Activity] Interface : Show Face Image[Image View] Capture Image [Button] Import Image [Button] Save Face [Button] Complete Registration [Button]
+
+Functionality: Start by Input of image either Captured or Imported as Bitmap as per respective button clicked. Extract the face from that bitmap using mlkit facedetection thing by making bounding boxes and cropping in a single function. Show the face Image In Image View. Load the Model file. Send that extracted face to gettheembedings. Save the face embeddings locally to be accessible over all the activities upon clicking respective button. Back to mainactivity upon clicking complete registration button [this button visible only after the face embeddings are retrieved and storing is done]
+
+FaceVerification:-[Activity] Interface : Show Face Image[Image View] Capture Image [Button] Verify Face[Button] Result [Empty Text View] Complete Verification[Button]
+
+Functionality: Start by input of image by capturing image upon clicking capture image button. Extract the face from that bitmap using mlkit facedetection thing by making bounding boxes and cropping in a single function. Show the face Image In Image View. Load the Model file. Recognize image by verifying with the embeddings stored and embeddings of captured upon clicking verify face button. Update Text View with the Recognition result verified or not verified. Complete Verificaion sends back to the Main Activity[this button visible only after the verify face is true and done].
+
